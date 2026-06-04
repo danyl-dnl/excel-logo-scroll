@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 2026 — Inspire. Innovate. Engineer.</title>
+    <meta name="description" content="Excel 2026 — National Techno-Managerial Fest. A quarter-century of engineering brilliance. Inspire. Innovate. Engineer.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600;700;800;900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030205;
+            --red: #770101;
+            --cream: #f0edde;
+            --navy: #023048;
+            --text: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.4);
+            --border: rgba(255, 255, 255, 0.06);
+            --e-smooth: cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html { scroll-behavior: auto; } /* Let GSAP/Lenis handle scrolling */
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Locked during intro */
+            -webkit-font-smoothing: antialiased;
+            cursor: none;
+        }
+
+        a, button { cursor: none; text-decoration: none; color: inherit; border: none; background: none;}
+
+        /* ── CUSTOM CURSOR ── */
+        #cursor-dot {
+            position: fixed; top: 0; left: 0; width: 4px; height: 4px;
+            background: var(--cream); border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
+        }
+        #cursor-ring {
+            position: fixed; top: 0; left: 0; width: 40px; height: 40px;
+            border: 1px solid rgba(240, 237, 222, 0.3); border-radius: 50%;
+            pointer-events: none; z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s var(--e-smooth), height 0.4s var(--e-smooth), border-color 0.4s;
+        }
+        .cursor-hover #cursor-ring { width: 60px; height: 60px; border-color: var(--cream); background: rgba(255,255,255,0.02); }
+
+        /* ── CINEMATIC GRAIN ── */
+        .noise {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 9000; opacity: 0.035;
+            background-image: url('data:image/svg+xml;charset=utf-8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        }
+
+
+
+        /* ── WEBGL BACKGROUND ── */
+        #webgl-container {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 1; pointer-events: none;
+        }
+
+        /* ── MAIN CONTENT (Hidden Initially) ── */
+        #main-content {
+            position: relative; z-index: 10;
+            opacity: 0; pointer-events: none;
+        }
+        #main-content.visible {
+            opacity: 1; pointer-events: auto;
+        }
+
+        /* ── NAVIGATION ── */
+        nav {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 2.5rem 5vw; display: flex; justify-content: space-between; align-items: center;
+            z-index: 100; mix-blend-mode: difference;
+        }
+        .nav-brand {
+            font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: 0.1em;
+        }
+        .nav-links { display: flex; gap: 3rem; }
+        .nav-links a {
+            font-size: 0.75rem; font-weight: 400; letter-spacing: 0.15em; text-transform: uppercase;
+            color: var(--text-dim); transition: color 0.4s ease;
+        }
+        .nav-links a:hover { color: var(--text); }
+
+        /* ── HERO SECTION ── */
+        .hero {
+            min-height: 100vh; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 0 5vw;
+            position: relative;
+        }
+        .hero-pre {
+            font-size: 0.7rem; font-weight: 300; letter-spacing: 0.4em; text-transform: uppercase;
+            color: var(--red); margin-bottom: 2rem;
+            opacity: 0; transform: translateY(20px);
+        }
+        .hero-title {
+            font-family: 'Outfit', sans-serif; font-weight: 800;
+            font-size: clamp(4rem, 15vw, 14rem); line-height: 0.85; letter-spacing: -0.04em;
+            text-align: center; margin-bottom: 3rem;
+            color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .hero-title span {
+            display: block; color: var(--text); -webkit-text-stroke: 0;
+            opacity: 0; transform: translateY(40px);
+        }
+        .hero-post {
+            display: flex; gap: 2rem; align-items: center;
+            opacity: 0; transform: translateY(20px);
+        }
+        .hero-post span {
+            font-size: 0.75rem; font-weight: 300; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-dim);
+        }
+        .hero-post .dot { width: 3px; height: 3px; background: var(--cream); border-radius: 50%; opacity: 0.5; }
+
+        .scroll-indicator {
+            position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 1rem;
+            opacity: 0;
+        }
+        .scroll-line { width: 1px; height: 60px; background: linear-gradient(to bottom, var(--text-dim), transparent); }
+
+        /* ══════════════════════════════════════════
+           ── FRAME SCRUB SECTION ──
+           The canvas is sticky while frames play
+        ══════════════════════════════════════════ */
+        #frame-scrub-section {
+            position: relative;
+            /* height is set by JS based on frame count (scroll distance) */
+            height: 800vh;
+            background: var(--bg);
+        }
+
+        /* Sticky wrapper that pins during scroll */
+        #frame-scrub-sticky {
+            position: sticky;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Canvas for frame rendering */
+        #frame-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Overlay text that appears on scroll during the animation */
+        .frame-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 4rem 5vw;
+        }
+        .frame-label {
+            font-size: 0.65rem;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: var(--red);
+            opacity: 0;
+            transform: translateY(12px);
+            margin-bottom: 0.75rem;
+            font-weight: 300;
+        }
+        .frame-headline {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 5vw, 4rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            opacity: 0;
+            transform: translateY(20px);
+            max-width: 600px;
+        }
+
+        /* Progress bar for the frame scrub */
+        #frame-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 0%;
+            background: linear-gradient(90deg, var(--red), var(--cream));
+            transition: none;
+            z-index: 5;
+        }
+
+        /* Frame counter badge */
+        #frame-counter {
+            position: absolute;
+            top: 2rem;
+            right: 5vw;
+            font-size: 0.65rem;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            opacity: 0;
+        }
+
+        /* ── SECTIONS ── */
+        .section { padding: 12rem 5vw; border-top: 1px solid var(--border); }
+        .sec-header { margin-bottom: 6rem; }
+        .sec-num { font-size: 0.7rem; color: var(--red); letter-spacing: 0.2em; margin-bottom: 1rem; display: block; }
+        .sec-title { font-family: 'Outfit', sans-serif; font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+
+        /* ── EVENTS GRID ── */
+        .events-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px;
+            background: var(--border); border: 1px solid var(--border);
+        }
+        .event-card {
+            background: var(--bg); padding: 4rem 3rem; transition: background 0.5s var(--e-smooth);
+            position: relative; overflow: hidden;
+        }
+        .event-card:hover { background: rgba(255,255,255,0.02); }
+        .e-cat { font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 2rem; display: block; }
+        .e-title { font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 600; margin-bottom: 1rem; }
+        .e-desc { font-size: 0.9rem; color: var(--text-dim); line-height: 1.6; font-weight: 300; }
+        
+        .fade-up { opacity: 0; transform: translateY(40px); transition: opacity 1s var(--e-smooth), transform 1s var(--e-smooth); }
+        .fade-up.in { opacity: 1; transform: translateY(0); }
+
+        /* ── LOADING OVERLAY ── */
+        #frame-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            background: var(--bg);
+            z-index: 10;
+            opacity: 1;
+            transition: opacity 0.8s ease;
+        }
+        #frame-loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-label {
+            font-size: 0.65rem;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+        .loading-bar-track {
+            width: 200px;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .loading-bar-fill {
+            position: absolute;
+            left: 0; top: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--red), var(--cream));
+            transition: width 0.2s ease;
+        }
+        #loading-percent {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+
+
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+    <div class="noise"></div>
+
+    <!-- 3D Canvas -->
+    <canvas id="webgl-container"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="main-content">
+        <nav>
+            <div class="nav-brand">EXCEL '26</div>
+            <div class="nav-links">
+                <a href="#about">Philosophy</a>
+                <a href="#events">Competitions</a>
+                <a href="#contact">Connect</a>
+            </div>
+        </nav>
+
+        <section class="hero" id="hero">
+            <div class="hero-pre">National Techno-Managerial Fest</div>
+            <div class="hero-post">
+                <span>Inspire</span><div class="dot"></div>
+                <span>Innovate</span><div class="dot"></div>
+                <span>Engineer</span>
+            </div>
+            <div class="scroll-indicator">
+                <div class="scroll-line"></div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════
+             FRAME-SCRUB ANIMATION SECTION
+        ════════════════════════════════════ -->
+        <section id="frame-scrub-section">
+            <div id="frame-scrub-sticky">
+
+                <!-- Loading indicator -->
+                <div id="frame-loading">
+                    <div id="loading-percent">0%</div>
+                    <div class="loading-bar-track">
+                        <div class="loading-bar-fill" id="loading-bar-fill"></div>
+                    </div>
+                    <div class="loading-label">Loading Animation Frames</div>
+                </div>
+
+                <!-- The canvas where frames are painted -->
+                <canvas id="frame-canvas"></canvas>
+
+                <!-- Overlay copy that fades in mid-scrub -->
+                <div class="frame-overlay">
+                    <div class="frame-label" id="frame-label">Excel '26 — Identity</div>
+                    <div class="frame-headline" id="frame-headline">A mark forged<br>from brilliance.</div>
+                </div>
+
+                <!-- Progress bar at bottom -->
+                <div id="frame-progress-bar"></div>
+
+                <!-- Frame counter top-right -->
+                <div id="frame-counter">—</div>
+            </div>
+        </section>
+
+        <section class="section" id="about">
+            <div class="sec-header fade-up">
+                <span class="sec-num">01 // LEGACY</span>
+                <h2 class="sec-title">A quarter-century of<br>engineering brilliance.</h2>
+            </div>
+        </section>
+
+        <section class="section" id="events">
+            <div class="sec-header fade-up">
+                <span class="sec-num">02 // DOMAINS</span>
+                <h2 class="sec-title">Prove your mettle.</h2>
+            </div>
+            <div class="events-grid">
+                <div class="event-card fade-up"><span class="e-cat">Computer Science</span><h3 class="e-title">Reverse Coding</h3><p class="e-desc">Reconstruct algorithms from raw output binaries. The ultimate deduction test.</p></div>
+                <div class="event-card fade-up"><span class="e-cat">Robotics</span><h3 class="e-title">Robo Wars</h3><p class="e-desc">Design, build, and fight. Steel clashes in the ultimate arena.</p></div>
+                <div class="event-card fade-up"><span class="e-cat">Business</span><h3 class="e-title">Venture Pitch</h3><p class="e-desc">Present high-scale startup architectures to real investors.</p></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- THREE.JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP core + ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Lenis smooth scroll -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+
+    <script>
+        // ════════════════════════════════════════════════
+        //  REGISTER GSAP PLUGINS
+        // ════════════════════════════════════════════════
+        gsap.registerPlugin(ScrollTrigger);
+
+        // ── CUSTOM CURSOR ──
+        const curDot = document.getElementById('cursor-dot');
+        const curRing = document.getElementById('cursor-ring');
+        let mx = window.innerWidth/2, my = window.innerHeight/2;
+        let rx = mx, ry = my;
+
+        window.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+        document.addEventListener('mouseover', e => {
+            if(e.target.closest('a, button')) document.body.classList.add('cursor-hover');
+            else document.body.classList.remove('cursor-hover');
+        });
+
+        function renderCursor() {
+            rx += (mx - rx) * 0.15;
+            ry += (my - ry) * 0.15;
+            curDot.style.transform = `translate(calc(-50% + ${mx}px), calc(-50% + ${my}px))`;
+            curRing.style.transform = `translate(calc(-50% + ${rx}px), calc(-50% + ${ry}px))`;
+            requestAnimationFrame(renderCursor);
+        }
+        renderCursor();
+
+        // ── SMOOTH SCROLL (Lenis + GSAP ScrollTrigger integration) ──
+        const lenis = new Lenis({ duration: 1.4, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+
+        // Bridge Lenis → ScrollTrigger so both stay in sync
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => { lenis.raf(time * 1000); });
+        gsap.ticker.lagSmoothing(0);
+
+        // ── SCROLL ANIMATIONS (IntersectionObserver for fade-up) ──
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('in'); });
+        }, { threshold: 0.15 });
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+        // ── THREE.JS CINEMATIC SCENE ──
+        const canvas3D = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030205, 0.0006);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+        camera.position.set(0, 0, 3500);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas3D, antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // Wormhole
+        const tunnelGroup = new THREE.Group();
+        scene.add(tunnelGroup);
+
+        const tGeo = new THREE.BufferGeometry();
+        const tCount = 20000;
+        const tPos = new Float32Array(tCount * 3);
+        const tCol = new Float32Array(tCount * 3);
+        
+        const colRed = new THREE.Color(0x770101);
+        const colCream = new THREE.Color(0xf0edde);
+        const colNavy = new THREE.Color(0x023048);
+
+        for(let i=0; i<tCount; i++) {
+            const z = Math.random() * 4000;
+            const radiusBase = 50 + (z * 0.05);
+            const radius = radiusBase + (Math.random() * 150);
+            const theta = (Math.random() * Math.PI * 2) + (z * 0.002);
+
+            tPos[i*3] = Math.cos(theta) * radius;
+            tPos[i*3+1] = Math.sin(theta) * radius;
+            tPos[i*3+2] = z;
+
+            const rand = Math.random();
+            let c = colRed;
+            if(rand > 0.8) c = colCream;
+            else if(rand > 0.5) c = colNavy;
+
+            const intensity = 0.4 + Math.random()*0.6;
+            tCol[i*3] = c.r * intensity;
+            tCol[i*3+1] = c.g * intensity;
+            tCol[i*3+2] = c.b * intensity;
+        }
+
+        tGeo.setAttribute('position', new THREE.BufferAttribute(tPos, 3));
+        tGeo.setAttribute('color', new THREE.BufferAttribute(tCol, 3));
+
+        const tMat = new THREE.PointsMaterial({
+            size: 2.5, vertexColors: true, blending: THREE.AdditiveBlending,
+            transparent: true, opacity: 0.8, depthWrite: false
+        });
+        const tunnelMesh = new THREE.Points(tGeo, tMat);
+        tunnelGroup.add(tunnelMesh);
+
+        // Space scene
+        const spaceGroup = new THREE.Group();
+        scene.add(spaceGroup);
+
+        const dGeo = new THREE.BufferGeometry();
+        const dPos = new Float32Array(3000 * 3);
+        for(let i=0; i<3000; i++) {
+            dPos[i*3] = (Math.random()-0.5)*2000;
+            dPos[i*3+1] = (Math.random()-0.5)*2000;
+            dPos[i*3+2] = (Math.random()-0.5)*1000 - 500;
+        }
+        dGeo.setAttribute('position', new THREE.BufferAttribute(dPos,3));
+        spaceGroup.add(new THREE.Points(dGeo, new THREE.PointsMaterial({color: 0xffffff, size: 1, transparent:true, opacity:0.3})));
+
+        const planets = [];
+        const planetData = [
+            {r: 14, col: 0x770101, dist: 160, sp: 0.001, y: 30},
+            {r: 8, col: 0x023048, dist: 220, sp: 0.0008, y: -40},
+            {r: 20, col: 0x111111, dist: 280, sp: 0.0004, y: -10},
+            {r: 6, col: 0xf0edde, dist: 120, sp: 0.002, y: 15}
+        ];
+
+        const pLight = new THREE.DirectionalLight(0xffffff, 1);
+        pLight.position.set(1, 1, 1);
+        spaceGroup.add(pLight);
+        spaceGroup.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+        planetData.forEach(d => {
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(d.r, 64, 64),
+                new THREE.MeshStandardMaterial({ color: d.col, roughness: 0.4, metalness: 0.6 })
+            );
+            mesh.userData = { angle: Math.random() * Math.PI * 2, dist: d.dist, sp: d.sp, y: d.y };
+            
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(d.dist - 0.2, d.dist + 0.2, 128),
+                new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = Math.PI / 2;
+            spaceGroup.add(ring);
+            
+            planets.push(mesh);
+            spaceGroup.add(mesh);
+        });
+
+
+
+        // ── THREE.JS RENDER LOOP ──
+        const clock = new THREE.Clock();
+        let targetCamZ = 3500;
+        let camX = 0, camY = 0;
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            const t = clock.getElapsedTime();
+
+            const targetX = ((mx / window.innerWidth) - 0.5) * 60;
+            const targetY = -((my / window.innerHeight) - 0.5) * 60;
+            camX += (targetX - camX) * 0.02;
+            camY += (targetY - camY) * 0.02;
+            
+            camera.position.x = camX;
+            camera.position.y = camY;
+            camera.position.z += (targetCamZ - camera.position.z) * 0.02;
+            camera.lookAt(0, 0, 0);
+
+            tunnelGroup.rotation.z = t * 0.05;
+
+            planets.forEach(p => {
+                p.userData.angle += p.userData.sp;
+                p.position.x = Math.cos(p.userData.angle) * p.userData.dist;
+                p.position.z = Math.sin(p.userData.angle) * p.userData.dist * 0.3;
+                p.position.y = p.userData.y + Math.sin(t + p.userData.angle) * 8;
+                p.rotation.y += 0.01;
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate3D();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            // Resize frame canvas too
+            resizeFrameCanvas();
+        });
+
+        // ════════════════════════════════════════════════
+        //   FRAME SCRUB — GSAP ScrollTrigger
+        // ════════════════════════════════════════════════
+
+        const FRAME_START = 5;     // ezgif-frame-005.jpg
+        const FRAME_END   = 240;   // ezgif-frame-240.jpg
+        const TOTAL_FRAMES = FRAME_END - FRAME_START + 1; // 236
+
+        const frameCanvas = document.getElementById('frame-canvas');
+        const ctx = frameCanvas.getContext('2d');
+
+        function padNum(n) { return String(n).padStart(3, '0'); }
+
+        // Build the ordered list of image paths
+        const framePaths = [];
+        for(let i = FRAME_START; i <= FRAME_END; i++) {
+            framePaths.push(`assets/ezgif-frame-${padNum(i)}.jpg`);
+        }
+
+        const images = new Array(TOTAL_FRAMES);
+        let loadedCount = 0;
+        let framesReady = false;
+
+        const loadingOverlay = document.getElementById('frame-loading');
+        const loadingBarFill  = document.getElementById('loading-bar-fill');
+        const loadingPercent  = document.getElementById('loading-percent');
+        const frameCounter    = document.getElementById('frame-counter');
+
+        function resizeFrameCanvas() {
+            frameCanvas.width  = frameCanvas.clientWidth  * window.devicePixelRatio;
+            frameCanvas.height = frameCanvas.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            // Redraw current frame after resize
+            if(framesReady) drawFrame(currentFrameIdx);
+        }
+
+        // ── DRAW A SINGLE FRAME ──
+        let currentFrameIdx = 0;
+        function drawFrame(idx) {
+            const img = images[idx];
+            if(!img || !img.complete) return;
+            const w = frameCanvas.clientWidth;
+            const h = frameCanvas.clientHeight;
+            ctx.clearRect(0, 0, w, h);
+
+            // Cover-fit the image (like object-fit: cover)
+            const imgRatio   = img.naturalWidth / img.naturalHeight;
+            const canvRatio  = w / h;
+            let drawW, drawH, drawX, drawY;
+
+            if(imgRatio > canvRatio) {
+                // Image is wider — fit height
+                drawH = h;
+                drawW = h * imgRatio;
+                drawX = (w - drawW) / 2;
+                drawY = 0;
+            } else {
+                // Image is taller — fit width
+                drawW = w;
+                drawH = w / imgRatio;
+                drawX = 0;
+                drawY = (h - drawH) / 2;
+            }
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        }
+
+        // ── PRELOAD ALL FRAMES ──
+        function preloadFrames(onComplete) {
+            framePaths.forEach((src, i) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadedCount++;
+                    const pct = Math.round((loadedCount / TOTAL_FRAMES) * 100);
+                    loadingBarFill.style.width = pct + '%';
+                    loadingPercent.textContent = pct + '%';
+                    if(loadedCount === TOTAL_FRAMES) {
+                        framesReady = true;
+                        onComplete();
+                    }
+                };
+                img.onerror = () => {
+                    loadedCount++;
+                    if(loadedCount === TOTAL_FRAMES) {
+                        framesReady = true;
+                        onComplete();
+                    }
+                };
+                img.src = src;
+                images[i] = img;
+            });
+        }
+
+        // ── SETUP SCROLL TRIGGER FOR FRAME SCRUB ──
+        function setupFrameScrub() {
+            // Hide loading overlay
+            loadingOverlay.classList.add('hidden');
+
+            // Show frame counter
+            gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
+
+            // Draw first frame
+            resizeFrameCanvas();
+            drawFrame(0);
+
+            // ── GSAP ScrollTrigger pinning + scrubbing ──
+            const frameScrubObj = { frame: 0 };
+
+            ScrollTrigger.create({
+                trigger: '#frame-scrub-section',
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 1.2,           // Smooth lag (seconds) — feels cinematic
+                onUpdate: (self) => {
+                    // Map scroll progress → frame index
+                    const idx = Math.min(
+                        Math.floor(self.progress * (TOTAL_FRAMES - 1)),
+                        TOTAL_FRAMES - 1
+                    );
+
+                    if(idx !== currentFrameIdx) {
+                        currentFrameIdx = idx;
+                        drawFrame(idx);
+                    }
+
+                    // Update progress bar
+                    document.getElementById('frame-progress-bar').style.width =
+                        (self.progress * 100).toFixed(2) + '%';
+
+                    // Update counter badge
+                    frameCounter.textContent =
+                        `${String(idx + FRAME_START).padStart(3,'0')} / ${FRAME_END}`;
+
+                    // Fade in overlay text between 20% – 80% of scrub
+                    const p = self.progress;
+                    const textVisible = (p > 0.15 && p < 0.88);
+                    const textOpacity = textVisible
+                        ? (p < 0.25 ? (p - 0.15) / 0.10
+                         : p > 0.78 ? (0.88 - p) / 0.10
+                         : 1)
+                        : 0;
+
+                    gsap.set('#frame-label', { opacity: textOpacity, y: textVisible ? 0 : 12 });
+                    gsap.set('#frame-headline', { opacity: textOpacity, y: textVisible ? 0 : 20 });
+                }
+            });
+
+            // Subtle entrance: scale-up the canvas on first enter
+            gsap.from(frameCanvas, {
+                scrollTrigger: {
+                    trigger: '#frame-scrub-section',
+                    start: 'top 80%',
+                    end: 'top top',
+                    scrub: true
+                },
+                scale: 0.95,
+                ease: 'none'
+            });
+        }
+
+        // ════════════════════════════════════════════════
+        //   CINEMATIC INTRO SEQUENCE
+        // ════════════════════════════════════════════════
+        window.addEventListener('load', () => {
+            // Kick off frame preloading immediately (parallel with intro)
+            preloadFrames(setupFrameScrub);
+
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    document.getElementById('main-content').classList.add('visible');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // 1. Camera glides out of tunnel
+            tl.to(window, {
+                duration: 3.5,
+                ease: "power2.inOut",
+                onUpdate: function() {
+                    targetCamZ = gsap.utils.interpolate(3500, 350, this.progress());
+                }
+            }, 0);
+
+            // 2. Fade out tunnel
+            tl.to(tMat, { opacity: 0, duration: 1.5, ease: "power1.in" }, 1.8);
+
+            // 3. UI reveal
+            tl.to('.hero-pre', { opacity: 1, y: 0, duration: 1.2, ease: "power3.out" }, 3.0);
+            tl.to('.hero-post', { opacity: 1, y: 0, duration: 1.2, ease: "power3.out" }, 3.2);
+            tl.to('.scroll-indicator', { opacity: 1, duration: 1.5 }, 3.5);
+        });
+
+    </script>
+</body>
+</html>
