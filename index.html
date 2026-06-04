@@ -707,7 +707,7 @@
                 trigger: '#frame-scrub-section',
                 start: 'top top',
                 end: 'bottom bottom',
-                scrub: 1.8,           // Increased smooth lag for a buttery, cinematic feel
+                scrub: 0.5,           // Tightened to 0.5s so it reacts instantly to fast swipes
                 onUpdate: (self) => {
                     // Map scroll progress → frame index
                     const idx = Math.min(
