@@ -153,12 +153,24 @@
             justify-content: center;
         }
 
-        /* Canvas for frame rendering */
+        /* Canvas for frame rendering (desktop) */
         #frame-canvas {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
+        }
+
+        /* Native img for frame rendering (mobile) — GPU composited */
+        #frame-img {
+            display: none; /* Hidden by default, shown on touch devices via JS */
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            will-change: contents; /* Hint to browser: content changes frequently */
+            transform: translateZ(0); /* Force GPU layer */
         }
 
         /* Overlay text that appears on scroll during the animation */
@@ -360,8 +372,10 @@
                     <div class="loading-label">Loading Animation Frames</div>
                 </div>
 
-                <!-- The canvas where frames are painted -->
+                <!-- The canvas where frames are painted (desktop) -->
                 <canvas id="frame-canvas"></canvas>
+                <!-- Native img element for mobile (GPU composited, zero-lag) -->
+                <img id="frame-img" alt="">
 
                 <!-- Overlay copy that fades in mid-scrub -->
                 <div class="frame-overlay">
@@ -597,7 +611,7 @@
         });
 
         // ════════════════════════════════════════════════
-        //   FRAME SCRUB — GSAP ScrollTrigger
+        //   FRAME SCRUB — Apple-style scroll animation
         // ════════════════════════════════════════════════
 
         const FRAME_START = 5;     // ezgif-frame-005.jpg
@@ -605,7 +619,16 @@
         const TOTAL_FRAMES = FRAME_END - FRAME_START + 1; // 236
 
         const frameCanvas = document.getElementById('frame-canvas');
-        const ctx = frameCanvas.getContext('2d');
+        const frameImg    = document.getElementById('frame-img');
+        let ctx;
+
+        // On mobile: hide canvas, show <img>. On desktop: use canvas.
+        if (isTouch) {
+            frameCanvas.style.display = 'none';
+            frameImg.style.display = 'block';
+        } else {
+            ctx = frameCanvas.getContext('2d');
+        }
 
         function padNum(n) { return String(n).padStart(3, '0'); }
 
@@ -625,25 +648,22 @@
         const frameCounter    = document.getElementById('frame-counter');
 
         function resizeFrameCanvas() {
-            // Cap pixel ratio at 1 on mobile — drawing at 3x is brutally slow on mobile GPUs
-            const dpr = isTouch ? 1 : Math.min(window.devicePixelRatio, 2);
+            if (!ctx) return; // Skip on mobile (using <img>)
+            const dpr = Math.min(window.devicePixelRatio, 2);
             frameCanvas.width  = frameCanvas.clientWidth  * dpr;
             frameCanvas.height = frameCanvas.clientHeight * dpr;
             ctx.scale(dpr, dpr);
-            if(framesReady) drawFrame(currentFrameIdx);
+            if(framesReady) drawFrameCanvas(currentFrameIdx);
         }
 
-        // ── DRAW A SINGLE FRAME ──
+        // ── DRAW TO CANVAS (Desktop only) ──
         let currentFrameIdx = 0;
-        // Cache draw dimensions so we don't recalculate every frame
         let _drawW, _drawH, _drawX, _drawY, _lastW, _lastH;
-        function drawFrame(idx) {
+        function drawFrameCanvas(idx) {
             const img = images[idx];
             if(!img || !img.complete) return;
             const w = frameCanvas.clientWidth;
             const h = frameCanvas.clientHeight;
-
-            // Only recalculate layout when canvas size changes
             if(w !== _lastW || h !== _lastH) {
                 _lastW = w; _lastH = h;
                 const imgRatio  = img.naturalWidth / img.naturalHeight;
@@ -658,6 +678,13 @@
             }
             ctx.clearRect(0, 0, w, h);
             ctx.drawImage(img, _drawX, _drawY, _drawW, _drawH);
+        }
+
+        // ── SHOW FRAME (Mobile — just swap the <img> src, GPU handles the rest) ──
+        function showFrameImg(idx) {
+            const img = images[idx];
+            if(!img || !img.src) return;
+            frameImg.src = img.src;
         }
 
         // ── PRELOAD ALL FRAMES ──
@@ -686,63 +713,67 @@
             });
         }
 
-        // ── SETUP SCROLL TRIGGER FOR FRAME SCRUB ──
+        // ── UPDATE UI (progress bar, counter, overlay text) ──
+        function updateScrubUI(progress) {
+            document.getElementById('frame-progress-bar').style.width =
+                (progress * 100).toFixed(1) + '%';
+            frameCounter.textContent =
+                `${String(currentFrameIdx + FRAME_START).padStart(3,'0')} / ${FRAME_END}`;
+            const p = progress;
+            const textVisible = (p > 0.15 && p < 0.88);
+            const textOpacity = textVisible
+                ? (p < 0.25 ? (p - 0.15) / 0.10
+                 : p > 0.78 ? (0.88 - p) / 0.10
+                 : 1)
+                : 0;
+            document.getElementById('frame-label').style.opacity = textOpacity;
+            document.getElementById('frame-headline').style.opacity = textOpacity;
+        }
+
+        // ── SETUP FRAME SCRUB ──
         function setupFrameScrub() {
             loadingOverlay.classList.add('hidden');
             gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
-            resizeFrameCanvas();
-            drawFrame(0);
 
             const section = document.getElementById('frame-scrub-section');
 
             if (isTouch) {
-                // ── MOBILE: Native scroll + rAF for zero-lag frame scrub ──
-                let rafPending = false;
+                // ══════════════════════════════════════════
+                //  MOBILE — Native <img> swap (Apple technique)
+                //  No canvas, no drawImage, pure GPU compositing
+                // ══════════════════════════════════════════
+                showFrameImg(0);
+                let ticking = false;
 
-                function onNativeScroll() {
-                    if (rafPending) return;
-                    rafPending = true;
+                window.addEventListener('scroll', () => {
+                    if (ticking) return;
+                    ticking = true;
                     requestAnimationFrame(() => {
-                        rafPending = false;
+                        ticking = false;
                         const rect = section.getBoundingClientRect();
                         const sectionH = section.offsetHeight - window.innerHeight;
+                        if (sectionH <= 0) return;
                         const scrolled = Math.max(0, -rect.top);
                         const progress = Math.min(scrolled / sectionH, 1);
-
                         const idx = Math.min(
                             Math.floor(progress * (TOTAL_FRAMES - 1)),
                             TOTAL_FRAMES - 1
                         );
                         if (idx !== currentFrameIdx) {
                             currentFrameIdx = idx;
-                            drawFrame(idx);
+                            showFrameImg(idx);
                         }
-
-                        // Progress bar
-                        document.getElementById('frame-progress-bar').style.width =
-                            (progress * 100).toFixed(2) + '%';
-
-                        // Counter
-                        frameCounter.textContent =
-                            `${String(idx + FRAME_START).padStart(3,'0')} / ${FRAME_END}`;
-
-                        // Overlay text fade
-                        const p = progress;
-                        const textVisible = (p > 0.15 && p < 0.88);
-                        const textOpacity = textVisible
-                            ? (p < 0.25 ? (p - 0.15) / 0.10
-                             : p > 0.78 ? (0.88 - p) / 0.10
-                             : 1)
-                            : 0;
-                        document.getElementById('frame-label').style.opacity = textOpacity;
-                        document.getElementById('frame-headline').style.opacity = textOpacity;
+                        updateScrubUI(progress);
                     });
-                }
-
-                window.addEventListener('scroll', onNativeScroll, { passive: true });
+                }, { passive: true });
 
             } else {
-                // ── DESKTOP: GSAP ScrollTrigger (silky smooth with Lenis) ──
+                // ══════════════════════════════════════════
+                //  DESKTOP — GSAP ScrollTrigger + Canvas + Lenis
+                // ══════════════════════════════════════════
+                resizeFrameCanvas();
+                drawFrameCanvas(0);
+
                 ScrollTrigger.create({
                     trigger: '#frame-scrub-section',
                     start: 'top top',
@@ -755,21 +786,9 @@
                         );
                         if(idx !== currentFrameIdx) {
                             currentFrameIdx = idx;
-                            drawFrame(idx);
+                            drawFrameCanvas(idx);
                         }
-                        document.getElementById('frame-progress-bar').style.width =
-                            (self.progress * 100).toFixed(2) + '%';
-                        frameCounter.textContent =
-                            `${String(idx + FRAME_START).padStart(3,'0')} / ${FRAME_END}`;
-                        const p = self.progress;
-                        const textVisible = (p > 0.15 && p < 0.88);
-                        const textOpacity = textVisible
-                            ? (p < 0.25 ? (p - 0.15) / 0.10
-                             : p > 0.78 ? (0.88 - p) / 0.10
-                             : 1)
-                            : 0;
-                        gsap.set('#frame-label', { opacity: textOpacity, y: textVisible ? 0 : 12 });
-                        gsap.set('#frame-headline', { opacity: textOpacity, y: textVisible ? 0 : 20 });
+                        updateScrubUI(self.progress);
                     }
                 });
 
