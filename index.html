@@ -433,13 +433,18 @@
         renderCursor();
 
         // ── SMOOTH SCROLL (Lenis + GSAP ScrollTrigger integration) ──
-        const lenis = new Lenis({ duration: 1.4, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
-        lenis.stop(); // Lock scroll during intro
-
-        // Bridge Lenis → ScrollTrigger so both stay in sync
-        lenis.on('scroll', ScrollTrigger.update);
-        gsap.ticker.add((time) => { lenis.raf(time * 1000); });
-        gsap.ticker.lagSmoothing(0);
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        let lenis;
+        
+        if (!isTouch) {
+            lenis = new Lenis({ duration: 1.4, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+            lenis.stop(); // Lock scroll during intro
+            lenis.on('scroll', ScrollTrigger.update);
+            gsap.ticker.add((time) => { lenis.raf(time * 1000); });
+            gsap.ticker.lagSmoothing(0);
+        } else {
+            document.body.style.overflow = 'hidden'; // Native mobile lock
+        }
 
         // ── SCROLL ANIMATIONS (IntersectionObserver for fade-up) ──
         const observer = new IntersectionObserver((entries) => {
@@ -760,7 +765,8 @@
             const tl = gsap.timeline({
                 onComplete: () => {
                     document.getElementById('main-content').classList.add('visible');
-                    lenis.start(); // Unlock scroll!
+                    if (lenis) lenis.start(); // Unlock scroll!
+                    else document.body.style.overflow = ''; // Unlock native mobile scroll
                 }
             });
 
