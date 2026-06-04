@@ -28,7 +28,7 @@
             background-color: var(--bg);
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            overflow: hidden; /* Locked during intro */
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             cursor: none;
         }
@@ -434,6 +434,7 @@
 
         // ── SMOOTH SCROLL (Lenis + GSAP ScrollTrigger integration) ──
         const lenis = new Lenis({ duration: 1.4, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+        lenis.stop(); // Lock scroll during intro
 
         // Bridge Lenis → ScrollTrigger so both stay in sync
         lenis.on('scroll', ScrollTrigger.update);
@@ -752,14 +753,14 @@
         // ════════════════════════════════════════════════
         //   CINEMATIC INTRO SEQUENCE
         // ════════════════════════════════════════════════
-        window.addEventListener('load', () => {
+        document.addEventListener('DOMContentLoaded', () => {
             // Kick off frame preloading immediately (parallel with intro)
             preloadFrames(setupFrameScrub);
 
             const tl = gsap.timeline({
                 onComplete: () => {
                     document.getElementById('main-content').classList.add('visible');
-                    document.body.style.overflow = '';
+                    lenis.start(); // Unlock scroll!
                 }
             });
 
