@@ -637,7 +637,7 @@
                 trigger: '#frame-scrub-section',
                 start: 'top top',
                 end: 'bottom bottom',
-                scrub: 0.5,
+                scrub: typeof lenis !== 'undefined' ? true : 0.5,
                 onUpdate: (self) => {
                     // Check if duration is valid and not NaN
                     if (video.duration) {
