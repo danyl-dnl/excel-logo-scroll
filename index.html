@@ -632,21 +632,33 @@
         function setupFrameScrub() {
             gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
             
-            // GSAP ScrollTrigger updates video.currentTime
+            let targetTime = 0;
+            let isSeeking = false;
+
+            // GSAP ScrollTrigger updates the target time
             ScrollTrigger.create({
                 trigger: '#frame-scrub-section',
                 start: 'top top',
                 end: 'bottom bottom',
                 scrub: typeof lenis !== 'undefined' ? true : 0.5,
                 onUpdate: (self) => {
-                    // Check if duration is valid and not NaN
                     if (video.duration) {
-                        // Smoothly update video time based on scroll
-                        video.currentTime = self.progress * video.duration;
+                        targetTime = self.progress * video.duration;
                         updateScrubUI(self.progress);
                     }
                 }
             });
+
+            // Asynchronous Render Loop to prevent Chrome from choking
+            function renderScrub() {
+                if (!isSeeking && Math.abs(video.currentTime - targetTime) > 0.005) {
+                    isSeeking = true;
+                    video.currentTime = targetTime;
+                }
+                requestAnimationFrame(renderScrub);
+            }
+            video.addEventListener('seeked', () => { isSeeking = false; });
+            requestAnimationFrame(renderScrub);
 
             gsap.from(video, {
                 scrollTrigger: {
