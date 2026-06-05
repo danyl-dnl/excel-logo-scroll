@@ -573,12 +573,8 @@
         //   FRAME SCRUB — Apple-style scroll animation
         // ════════════════════════════════════════════════
 
-        const FRAME_START = 5;     // ezgif-frame-005.jpg
-        const FRAME_END   = 240;   // ezgif-frame-240.jpg
-        const TOTAL_FRAMES = FRAME_END - FRAME_START + 1; // 236
-
         // ── APPLE VIDEO SCRUB ENGINE ──
-        const TOTAL_FRAMES = 236;
+        const TOTAL_FRAMES = 192;
         const video = document.getElementById('frame-video');
         const frameCounter = document.getElementById('frame-counter');
         
@@ -619,7 +615,7 @@
             
             // Calculate current frame for the counter (just for visual effect)
             const currentFrame = Math.min(Math.floor(progress * (TOTAL_FRAMES - 1)), TOTAL_FRAMES - 1);
-            frameCounter.textContent = `${String(currentFrame + 5).padStart(3,'0')} / 240`;
+            frameCounter.textContent = `${String(currentFrame + 1).padStart(3,'0')} / ${TOTAL_FRAMES}`;
             
             const p = progress;
             const textVisible = (p > 0.15 && p < 0.88);
