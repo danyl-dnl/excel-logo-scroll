@@ -176,24 +176,12 @@
             justify-content: center;
         }
 
-        /* Canvas for frame rendering (desktop) */
+        /* Canvas for frame rendering */
         #frame-canvas {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
-        }
-
-        /* Native img for frame rendering (mobile) — GPU composited */
-        #frame-img {
-            display: none; /* Hidden by default, shown on touch devices via JS */
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            will-change: contents; /* Hint to browser: content changes frequently */
-            transform: translateZ(0); /* Force GPU layer */
         }
 
         /* Overlay text that appears on scroll during the animation */
@@ -345,10 +333,8 @@
 
 
 
-                <!-- The canvas where frames are painted (desktop) -->
+                <!-- The universal canvas where frames are smoothly painted -->
                 <canvas id="frame-canvas"></canvas>
-                <!-- Native img element for mobile (GPU composited, zero-lag) -->
-                <img id="frame-img" alt="">
 
                 <!-- Overlay copy that fades in mid-scrub -->
                 <div class="frame-overlay">
@@ -592,16 +578,7 @@
         const TOTAL_FRAMES = FRAME_END - FRAME_START + 1; // 236
 
         const frameCanvas = document.getElementById('frame-canvas');
-        const frameImg    = document.getElementById('frame-img');
-        let ctx;
-
-        // On mobile: hide canvas, show <img>. On desktop: use canvas.
-        if (isTouch) {
-            frameCanvas.style.display = 'none';
-            frameImg.style.display = 'block';
-        } else {
-            ctx = frameCanvas.getContext('2d');
-        }
+        const ctx = frameCanvas.getContext('2d');
 
         function padNum(n) { return String(n).padStart(3, '0'); }
 
@@ -651,12 +628,7 @@
             ctx.drawImage(img, _drawX, _drawY, _drawW, _drawH);
         }
 
-        // ── SHOW FRAME (Mobile — just swap the <img> src, GPU handles the rest) ──
-        function showFrameImg(idx) {
-            const img = images[idx];
-            if(!img || !img.src) return;
-            frameImg.src = img.src;
-        }
+
 
         // ── PRELOAD ALL FRAMES ──
         function preloadFrames(onComplete) {
@@ -706,74 +678,38 @@
         function setupFrameScrub() {
             gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
 
-            const section = document.getElementById('frame-scrub-section');
+            resizeFrameCanvas();
+            drawFrameCanvas(0);
 
-            if (isTouch) {
-                // ══════════════════════════════════════════
-                //  MOBILE — Native <img> swap (Apple technique)
-                //  No canvas, no drawImage, pure GPU compositing
-                // ══════════════════════════════════════════
-                showFrameImg(0);
-                let ticking = false;
-
-                window.addEventListener('scroll', () => {
-                    if (ticking) return;
-                    ticking = true;
-                    requestAnimationFrame(() => {
-                        ticking = false;
-                        const rect = section.getBoundingClientRect();
-                        const sectionH = section.offsetHeight - window.innerHeight;
-                        if (sectionH <= 0) return;
-                        const scrolled = Math.max(0, -rect.top);
-                        const progress = Math.min(scrolled / sectionH, 1);
-                        const idx = Math.min(
-                            Math.floor(progress * (TOTAL_FRAMES - 1)),
-                            TOTAL_FRAMES - 1
-                        );
-                        if (idx !== currentFrameIdx) {
-                            currentFrameIdx = idx;
-                            showFrameImg(idx);
-                        }
-                        updateScrubUI(progress);
-                    });
-                }, { passive: true });
-
-            } else {
-                // ══════════════════════════════════════════
-                //  DESKTOP — GSAP ScrollTrigger + Canvas + Lenis
-                // ══════════════════════════════════════════
-                resizeFrameCanvas();
-                drawFrameCanvas(0);
-
-                ScrollTrigger.create({
-                    trigger: '#frame-scrub-section',
-                    start: 'top top',
-                    end: 'bottom bottom',
-                    scrub: 0.5,
-                    onUpdate: (self) => {
-                        const idx = Math.min(
-                            Math.floor(self.progress * (TOTAL_FRAMES - 1)),
-                            TOTAL_FRAMES - 1
-                        );
-                        if(idx !== currentFrameIdx) {
-                            currentFrameIdx = idx;
-                            drawFrameCanvas(idx);
-                        }
-                        updateScrubUI(self.progress);
+            // GSAP ScrollTrigger handles smooth scrub interpolation universally
+            ScrollTrigger.create({
+                trigger: '#frame-scrub-section',
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.5, // 0.5s lerp lag makes scrolling buttery smooth even on fast swipes
+                onUpdate: (self) => {
+                    const idx = Math.min(
+                        Math.floor(self.progress * (TOTAL_FRAMES - 1)),
+                        TOTAL_FRAMES - 1
+                    );
+                    if(idx !== currentFrameIdx) {
+                        currentFrameIdx = idx;
+                        drawFrameCanvas(idx);
                     }
-                });
+                    updateScrubUI(self.progress);
+                }
+            });
 
-                gsap.from(frameCanvas, {
-                    scrollTrigger: {
-                        trigger: '#frame-scrub-section',
-                        start: 'top 80%',
-                        end: 'top top',
-                        scrub: true
-                    },
-                    scale: 0.95,
-                    ease: 'none'
-                });
-            }
+            gsap.from(frameCanvas, {
+                scrollTrigger: {
+                    trigger: '#frame-scrub-section',
+                    start: 'top 80%',
+                    end: 'top top',
+                    scrub: true
+                },
+                scale: 0.95,
+                ease: 'none'
+            });
         }
 
         function tryUnlockScroll() {
