@@ -176,8 +176,8 @@
             justify-content: center;
         }
 
-        /* Canvas for frame rendering */
-        #frame-canvas {
+        /* Video for frame rendering */
+        #frame-video {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -333,8 +333,8 @@
 
 
 
-                <!-- The universal canvas where frames are smoothly painted -->
-                <canvas id="frame-canvas"></canvas>
+                <!-- The scrubbing video -->
+                <video id="frame-video" src="assets/scroll-anim.mp4" playsinline muted preload="auto"></video>
 
                 <!-- Overlay copy that fades in mid-scrub -->
                 <div class="frame-overlay">
@@ -577,92 +577,50 @@
         const FRAME_END   = 240;   // ezgif-frame-240.jpg
         const TOTAL_FRAMES = FRAME_END - FRAME_START + 1; // 236
 
-        const frameCanvas = document.getElementById('frame-canvas');
-        const ctx = frameCanvas.getContext('2d');
-
-        function padNum(n) { return String(n).padStart(3, '0'); }
-
-        // Build the ordered list of image paths
-        const framePaths = [];
-        for(let i = FRAME_START; i <= FRAME_END; i++) {
-            framePaths.push(`assets/ezgif-frame-${padNum(i)}.jpg`);
-        }
-
-        const images = new Array(TOTAL_FRAMES);
-        let loadedCount = 0;
+        // ── APPLE VIDEO SCRUB ENGINE ──
+        const TOTAL_FRAMES = 236;
+        const video = document.getElementById('frame-video');
+        const frameCounter = document.getElementById('frame-counter');
+        
         let framesReady = false;
         let introsDone = false;
 
-        const frameCounter    = document.getElementById('frame-counter');
+        // Force browser to load video metadata so we know the duration
+        video.load();
+        
+        // Wait for enough video data to be loaded before unlocking scroll
+        video.addEventListener('canplay', () => {
+            framesReady = true;
+            tryUnlockScroll();
+        });
+        
+        // Fallback: If it's taking too long on mobile to fire 'canplay' 
+        // without interaction, just unlock after loadedmetadata
+        video.addEventListener('loadedmetadata', () => {
+            setTimeout(() => {
+                framesReady = true;
+                tryUnlockScroll();
+            }, 1000); // 1 second safety net
+        });
 
-        function resizeFrameCanvas() {
-            if (!ctx) return; // Skip on mobile (using <img>)
-            const dpr = Math.min(window.devicePixelRatio, 2);
-            frameCanvas.width  = frameCanvas.clientWidth  * dpr;
-            frameCanvas.height = frameCanvas.clientHeight * dpr;
-            ctx.scale(dpr, dpr);
-            if(framesReady) drawFrameCanvas(currentFrameIdx);
-        }
-
-        // ── DRAW TO CANVAS (Desktop only) ──
-        let currentFrameIdx = 0;
-        let _drawW, _drawH, _drawX, _drawY, _lastW, _lastH;
-        function drawFrameCanvas(idx) {
-            const img = images[idx];
-            if(!img || !img.complete) return;
-            const w = frameCanvas.clientWidth;
-            const h = frameCanvas.clientHeight;
-            if(w !== _lastW || h !== _lastH) {
-                _lastW = w; _lastH = h;
-                const imgRatio  = img.naturalWidth / img.naturalHeight;
-                const canvRatio = w / h;
-                if(imgRatio > canvRatio) {
-                    _drawH = h; _drawW = h * imgRatio;
-                    _drawX = (w - _drawW) / 2; _drawY = 0;
-                } else {
-                    _drawW = w; _drawH = w / imgRatio;
-                    _drawX = 0; _drawY = (h - _drawH) / 2;
-                }
+        // Track loading progress for the button
+        video.addEventListener('progress', () => {
+            if (!framesReady && video.buffered.length > 0 && video.duration) {
+                const loaded = video.buffered.end(video.buffered.length - 1);
+                const pct = Math.min(Math.round((loaded / video.duration) * 100), 99);
+                const label = document.getElementById('scroll-btn-label');
+                if (label) label.textContent = `Loading... ${pct}%`;
             }
-            ctx.clearRect(0, 0, w, h);
-            ctx.drawImage(img, _drawX, _drawY, _drawW, _drawH);
-        }
+        });
 
-
-
-        // ── PRELOAD ALL FRAMES ──
-        function preloadFrames(onComplete) {
-            framePaths.forEach((src, i) => {
-                const img = new Image();
-                img.onload = () => {
-                    loadedCount++;
-                    const pct = Math.round((loadedCount / TOTAL_FRAMES) * 100);
-                    const label = document.getElementById('scroll-btn-label');
-                    if (label && !framesReady) label.textContent = `Loading... ${pct}%`;
-                    
-                    if(loadedCount === TOTAL_FRAMES) {
-                        framesReady = true;
-                        onComplete();
-                    }
-                };
-                img.onerror = () => {
-                    loadedCount++;
-                    if(loadedCount === TOTAL_FRAMES) {
-                        framesReady = true;
-                        onComplete();
-                    }
-                };
-                img.src = src;
-                images[i] = img;
-            });
-        }
-
-        // ── UPDATE UI (progress bar, counter, overlay text) ──
+        // ── UPDATE UI ──
         function updateScrubUI(progress) {
-            document.getElementById('frame-progress-bar').style.width =
-                (progress * 100).toFixed(1) + '%';
-            frameCounter.textContent =
-                `${String(currentFrameIdx + FRAME_START).padStart(3,'0')} / ${FRAME_END}`;
+            document.getElementById('frame-progress-bar').style.width = (progress * 100).toFixed(1) + '%';
+            
+            // Calculate current frame for the counter (just for visual effect)
+            const currentFrame = Math.min(Math.floor(progress * (TOTAL_FRAMES - 1)), TOTAL_FRAMES - 1);
+            frameCounter.textContent = `${String(currentFrame + 5).padStart(3,'0')} / 240`;
+            
             const p = progress;
             const textVisible = (p > 0.15 && p < 0.88);
             const textOpacity = textVisible
@@ -677,30 +635,24 @@
         // ── SETUP FRAME SCRUB ──
         function setupFrameScrub() {
             gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
-
-            resizeFrameCanvas();
-            drawFrameCanvas(0);
-
-            // GSAP ScrollTrigger handles smooth scrub interpolation universally
+            
+            // GSAP ScrollTrigger updates video.currentTime
             ScrollTrigger.create({
                 trigger: '#frame-scrub-section',
                 start: 'top top',
                 end: 'bottom bottom',
-                scrub: 0.5, // 0.5s lerp lag makes scrolling buttery smooth even on fast swipes
+                scrub: 0.5,
                 onUpdate: (self) => {
-                    const idx = Math.min(
-                        Math.floor(self.progress * (TOTAL_FRAMES - 1)),
-                        TOTAL_FRAMES - 1
-                    );
-                    if(idx !== currentFrameIdx) {
-                        currentFrameIdx = idx;
-                        drawFrameCanvas(idx);
+                    // Check if duration is valid and not NaN
+                    if (video.duration) {
+                        // Smoothly update video time based on scroll
+                        video.currentTime = self.progress * video.duration;
+                        updateScrubUI(self.progress);
                     }
-                    updateScrubUI(self.progress);
                 }
             });
 
-            gsap.from(frameCanvas, {
+            gsap.from(video, {
                 scrollTrigger: {
                     trigger: '#frame-scrub-section',
                     start: 'top 80%',
@@ -742,11 +694,8 @@
         //   CINEMATIC INTRO SEQUENCE
         // ════════════════════════════════════════════════
         document.addEventListener('DOMContentLoaded', () => {
-            // Kick off frame preloading immediately
-            preloadFrames(() => {
-                setupFrameScrub();
-                tryUnlockScroll();
-            });
+            // Setup the scrub logic (it will wait for scroll events)
+            setupFrameScrub();
 
             const tl = gsap.timeline({
                 onComplete: () => {
