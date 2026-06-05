@@ -123,12 +123,35 @@
         }
         .hero-post .dot { width: 3px; height: 3px; background: var(--cream); border-radius: 50%; opacity: 0.5; }
 
+        /* ── SCROLL INDICATOR ── */
         .scroll-indicator {
             position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center; gap: 1rem;
-            opacity: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+            opacity: 0; cursor: pointer; background: transparent; border: none;
+            color: var(--text-dim); transition: color 0.3s ease;
         }
-        .scroll-line { width: 1px; height: 60px; background: linear-gradient(to bottom, var(--text-dim), transparent); }
+        .scroll-indicator:hover { color: var(--text); }
+        .scroll-indicator:disabled { cursor: default; color: var(--text-dim); opacity: 0.5; }
+        .scroll-label {
+            font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+            font-weight: 300; font-family: 'Inter', sans-serif;
+        }
+        .scroll-arrow {
+            width: 1px; height: 50px;
+            background: linear-gradient(to bottom, currentColor, transparent);
+            position: relative; animation: scrollBounce 1.8s ease-in-out infinite;
+        }
+        .scroll-arrow::after {
+            content: ''; position: absolute; bottom: 0; left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 5px; height: 5px;
+            border-right: 1px solid currentColor;
+            border-bottom: 1px solid currentColor;
+        }
+        @keyframes scrollBounce {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(8px); opacity: 1; }
+        }
 
         /* ══════════════════════════════════════════
            ── FRAME SCRUB SECTION ──
@@ -251,51 +274,7 @@
         .fade-up { opacity: 0; transform: translateY(40px); transition: opacity 1s var(--e-smooth), transform 1s var(--e-smooth); }
         .fade-up.in { opacity: 1; transform: translateY(0); }
 
-        /* ── LOADING OVERLAY ── */
-        #frame-loading {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 1.5rem;
-            background: var(--bg);
-            z-index: 10;
-            opacity: 1;
-            transition: opacity 0.8s ease;
-        }
-        #frame-loading.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        .loading-label {
-            font-size: 0.65rem;
-            letter-spacing: 0.35em;
-            text-transform: uppercase;
-            color: var(--text-dim);
-        }
-        .loading-bar-track {
-            width: 200px;
-            height: 1px;
-            background: rgba(255,255,255,0.1);
-            position: relative;
-            overflow: hidden;
-        }
-        .loading-bar-fill {
-            position: absolute;
-            left: 0; top: 0;
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--red), var(--cream));
-            transition: width 0.2s ease;
-        }
-        #loading-percent {
-            font-family: 'Outfit', sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--text);
-        }
+
         /* ── MOBILE RESPONSIVENESS ── */
         @media (max-width: 768px) {
             /* Hide custom cursor on touch devices */
@@ -352,9 +331,10 @@
                 <span>Innovate</span><div class="dot"></div>
                 <span>Engineer</span>
             </div>
-            <div class="scroll-indicator">
-                <div class="scroll-line"></div>
-            </div>
+            <button class="scroll-indicator" id="scroll-btn" disabled>
+                <div class="scroll-label" id="scroll-btn-label">Loading...</div>
+                <div class="scroll-arrow" id="scroll-btn-arrow" style="display: none;"></div>
+            </button>
         </section>
 
         <!-- ════════════════════════════════════
@@ -363,14 +343,7 @@
         <section id="frame-scrub-section">
             <div id="frame-scrub-sticky">
 
-                <!-- Loading indicator -->
-                <div id="frame-loading">
-                    <div id="loading-percent">0%</div>
-                    <div class="loading-bar-track">
-                        <div class="loading-bar-fill" id="loading-bar-fill"></div>
-                    </div>
-                    <div class="loading-label">Loading Animation Frames</div>
-                </div>
+
 
                 <!-- The canvas where frames are painted (desktop) -->
                 <canvas id="frame-canvas"></canvas>
@@ -641,10 +614,8 @@
         const images = new Array(TOTAL_FRAMES);
         let loadedCount = 0;
         let framesReady = false;
+        let introsDone = false;
 
-        const loadingOverlay = document.getElementById('frame-loading');
-        const loadingBarFill  = document.getElementById('loading-bar-fill');
-        const loadingPercent  = document.getElementById('loading-percent');
         const frameCounter    = document.getElementById('frame-counter');
 
         function resizeFrameCanvas() {
@@ -694,8 +665,9 @@
                 img.onload = () => {
                     loadedCount++;
                     const pct = Math.round((loadedCount / TOTAL_FRAMES) * 100);
-                    loadingBarFill.style.width = pct + '%';
-                    loadingPercent.textContent = pct + '%';
+                    const label = document.getElementById('scroll-btn-label');
+                    if (label && !framesReady) label.textContent = `Loading... ${pct}%`;
+                    
                     if(loadedCount === TOTAL_FRAMES) {
                         framesReady = true;
                         onComplete();
@@ -732,7 +704,6 @@
 
         // ── SETUP FRAME SCRUB ──
         function setupFrameScrub() {
-            loadingOverlay.classList.add('hidden');
             gsap.to(frameCounter, { opacity: 1, duration: 0.5 });
 
             const section = document.getElementById('frame-scrub-section');
@@ -805,18 +776,47 @@
             }
         }
 
+        function tryUnlockScroll() {
+            if (!introsDone || !framesReady) return;
+            
+            // Transform button to 'Scroll Down'
+            const btnLabel = document.getElementById('scroll-btn-label');
+            const btnArrow = document.getElementById('scroll-btn-arrow');
+            const btn = document.getElementById('scroll-btn');
+            if (btnLabel) btnLabel.textContent = "Scroll Down";
+            if (btnArrow) btnArrow.style.display = "block";
+            if (btn) btn.disabled = false;
+            
+            // Handle scroll button click
+            btn.addEventListener('click', () => {
+                const target = document.getElementById('frame-scrub-section');
+                if (lenis) {
+                    lenis.scrollTo(target, { duration: 1.5, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+                } else {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+
+            // Unlock actual page scroll
+            if (lenis) lenis.start(); 
+            else document.body.style.overflow = '';
+        }
+
         // ════════════════════════════════════════════════
         //   CINEMATIC INTRO SEQUENCE
         // ════════════════════════════════════════════════
         document.addEventListener('DOMContentLoaded', () => {
-            // Kick off frame preloading immediately (parallel with intro)
-            preloadFrames(setupFrameScrub);
+            // Kick off frame preloading immediately
+            preloadFrames(() => {
+                setupFrameScrub();
+                tryUnlockScroll();
+            });
 
             const tl = gsap.timeline({
                 onComplete: () => {
                     document.getElementById('main-content').classList.add('visible');
-                    if (lenis) lenis.start(); // Unlock scroll!
-                    else document.body.style.overflow = ''; // Unlock native mobile scroll
+                    introsDone = true;
+                    tryUnlockScroll();
                 }
             });
 
